@@ -21,11 +21,6 @@ if module?
     setChildren: (row, children) ->
       throw 'Not implemented'
 
-    getCollapsed: (row) ->
-      throw 'Not implemented'
-    setCollapsed: (row, collapsed) ->
-      throw 'Not implemented'
-
     # get global settings
     getSetting: (setting) ->
       throw 'Not implemented'
@@ -95,12 +90,6 @@ if module?
 
     setChildren: (row, children) ->
       @children[row] = children
-
-    getCollapsed: (row) ->
-      return @collapsed[row]
-
-    setCollapsed: (row, collapsed) ->
-      @collapsed[row] = collapsed
 
     getMarks: (row) ->
       return @marks[row] or {}
@@ -226,15 +215,6 @@ if module?
     setChildren: (row, children) ->
       @children[row] = children
       @_setLocalStorage_ (@_childrenKey_ row), children
-
-    getCollapsed: (row) ->
-      if not (row of @collapsed)
-        @collapsed[row] = @_getLocalStorage_ @_collapsedKey_ row
-      return @collapsed[row]
-
-    setCollapsed: (row, collapsed) ->
-      @collapsed[row] = collapsed
-      @_setLocalStorage_ (@_collapsedKey_ row), collapsed
 
     getMarks: (row) ->
       if not (row of @marks)
