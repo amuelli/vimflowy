@@ -778,7 +778,7 @@ if module?
             @view.yankBetween @view.cursor, cursor, options
         CLONE:
           display: 'Yank blocks as a clone'
-          drop: true # TODO: Is this correct? Re-check after Jeff documents
+          drop: true
           finishes_visual_line: true
           fn: () ->
             @view.yankBlocksClone @repeat

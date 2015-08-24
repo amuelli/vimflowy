@@ -254,6 +254,8 @@ class Data
       parents = @store.getParents child.id
       parents.push row.id
       @store.setParents child.id, row.id
+      if (!@collapsed child) and (!@sameInstance child, @viewRoot) and (@hasVisibleAncestor child, child)
+        child.collapsed = true
       @attachMarks child
 
     @store.setChildren row.id, children
@@ -315,6 +317,16 @@ class Data
         return null
       if @collapsed cur
         answer = cur
+   
+  # Checks whether the ancestor is visible. Does not include the given node but does
+  # include viewRoot
+  hasVisibleAncestor: (row, checkAncestor) ->
+    cur = row
+    until cur.id == @viewRoot.id or cur.id == @root.id
+      cur = @getParent cur
+      if cur.id == checkAncestor.id
+        return true
+    return false
 
   # returns whether a row is actually reachable from the root node
   # if something is not detached, it will have a parent, but the parent wont mention it as a child
@@ -359,7 +371,7 @@ class Data
     return child
 
   cloneRow: (row, parent, index = -1) ->
-    @attachChildren parent, _.cloneDeep(row), index
+    @attachChild parent, _.cloneDeep(row), index
 
   # this is never used, since data structure is basically persistent
   # deleteRow: (row) ->
