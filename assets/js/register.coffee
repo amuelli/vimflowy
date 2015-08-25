@@ -1,9 +1,16 @@
 class Register
+
+  #############
+  # Union Type
+  #############
+
   @TYPES = {
     NONE: 0
     CHARS: 1
+    # TODO: Document difference between ROWS and SERIALIZED ROWS
     ROWS: 2
     SERIALIZED_ROWS: 3
+    CLONED_ROWS: 4
   }
 
   # Register is a union type. @data holds one of several kinds of values
@@ -34,6 +41,10 @@ class Register
     @type = Register.TYPES.SERIALIZED_ROWS
     @data = data
 
+  saveClonedRows: (data) ->
+    @type = Register.TYPES.CLONED_ROWS
+    @data = data
+
   serialize: () ->
     return {type: @type, data: @data}
 
@@ -52,6 +63,8 @@ class Register
       @pasteRows options
     else if @type == Register.TYPES.SERIALIZED_ROWS
       @pasteSerializedRows options
+    else if @type == Register.TYPES.CLONED_ROWS
+      @pasteClonedRows options
 
   pasteChars: (options = {}) ->
     if options.before
@@ -93,6 +106,20 @@ class Register
         @view.addBlocks @serialized_rows, row, 0, {setCursor: 'first'}
       else
         @view.addBlocks @serialized_rows, parent, (index + 1), {setCursor: 'first'}
+
+  pasteClonedRows: (options = {}) ->
+    row = @view.cursor.row
+    parent = @view.data.getParent row
+    index = @view.data.indexOf row
+
+    if options.before
+      @view.addClones @cloned_rows, parent, index, {setCursor: 'first'}
+    else
+      children = @view.data.getChildren row
+      if (not @view.data.collapsed row) and (children.length > 0)
+        @view.addClones @cloned_rows, row, 0, {setCursor: 'first'}
+      else
+        @view.addClones @cloned_rows, parent, (index + 1), {setCursor: 'first'}
 
 # exports
 module?.exports = Register
