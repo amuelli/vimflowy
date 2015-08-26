@@ -11,6 +11,7 @@
     "test": "./tests/run.coffee"
   },
   "dependencies": {
+    "assert": "latest",
     "async": "latest",
     "coffee-script": "latest",
     "connect-assets": "latest",

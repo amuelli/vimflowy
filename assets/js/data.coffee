@@ -166,6 +166,7 @@ class Data
     children = @store.getChildren row.id
     _.each children, (child) ->
       child.crumbs = { parent: row.id, crumbs: _.cloneDeep(row.crumbs) }
+      delete child.collapsed
     return children
 
   hasChildren: (row) ->
@@ -177,8 +178,21 @@ class Data
       child.crumbs = row.crumbs
     return children
 
+  ###############
+  # An instance has a row.collapsed attribute which can override 
+  #  client-side instances. If set, this value is authoritative.
+  # Otherwise, we use the value from 
+  #  parent.child{row.id}.collapsed in the datastore
+  ###############
   collapsed: (row) ->
-    return @store.getCollapsed row.id
+    if row.cyclic
+      return row.collapsed
+    parent = @getParent row
+    children = @store.getChildren parent.id
+    child = _.findWhere children, { id: row.id }
+    if not child?
+        throw "Cannot find child in its parents children"
+    return child?.collapsed
 
   canonicalInstance: (id, mark) -> # Given an id (for example with search or mark), return a row with that id
     # TODO: try to optimize for one in the viewroot
@@ -188,7 +202,7 @@ class Data
       return @root
     parentId = (@store.getParents id)[0]
     canonicalParent = @canonicalInstance parentId
-    if not canonicalParent
+    if not canonicalParent?
       return
     children = @getChildren canonicalParent
     return _.find children, (sib) ->
@@ -203,7 +217,19 @@ class Data
     return true
 
   toggleCollapsed: (row) ->
-    @store.setCollapsed row.id, (not @collapsed row)
+    if row.id == @root.id
+      throw "Cannot collapse root node"
+    if row.cyclic
+      row.collapsed = not row.collapsed
+      return row.collapsed
+    parent = @getParent row
+    children = @store.getChildren parent.id
+    child = _.findWhere children, { id: row.id }
+    if not child?
+        throw "Cannot find child in its parents children"
+    child.collapsed = not child.collapsed
+    @store.setChildren parent.id, children
+    return child.collapsed
 
   # whether currently viewable.  ASSUMES ROW IS WITHIN VIEWROOT
   viewable: (row) ->
@@ -254,8 +280,10 @@ class Data
       parents = @store.getParents child.id
       parents.push row.id
       @store.setParents child.id, row.id
-      if (!@collapsed child) and (!@sameInstance child, @viewRoot) and (@hasVisibleAncestor child, child)
+      if not (@sameInstance child, @viewRoot) and (@hasAncestor child, child)
+        # TODO: The logic should actually be, has the child as an ancestor WITH the same parent
         child.collapsed = true
+        child.cyclic = true
       @attachMarks child
 
     @store.setChildren row.id, children
@@ -318,11 +346,10 @@ class Data
       if @collapsed cur
         answer = cur
    
-  # Checks whether the ancestor is visible. Does not include the given node but does
-  # include viewRoot
-  hasVisibleAncestor: (row, checkAncestor) ->
+  # Checks whether the ancestor exists. Does not include the given node.
+  hasAncestor: (row, checkAncestor) ->
     cur = row
-    until cur.id == @viewRoot.id or cur.id == @root.id
+    until cur.id == @root.id
       cur = @getParent cur
       if cur.id == checkAncestor.id
         return true
@@ -471,14 +498,14 @@ class Data
   #################
 
   # important: serialized automatically garbage collects
-  serialize: (row = @root, pretty=false) ->
+  serialize: (row = @root, pretty=false, options = { includeCollapsed: false }) ->
     line = @getLine row
     text = (@getText row).join('')
 
     struct = {
       text: text
     }
-    children = (@serialize childrow, pretty for childrow in @getChildren row)
+    children = (@serialize childrow, pretty, { includeCollapsed: true } for childrow in @getChildren row)
     if children.length
       struct.children = children
 
@@ -490,7 +517,7 @@ class Data
     if row.id == @root.id and @viewRoot.id != @root.id
       struct.viewRoot = @viewRoot
 
-    if @collapsed row
+    if options.includeCollapsed and @collapsed row
       struct.collapsed = true
 
     mark = @getMark row
@@ -503,10 +530,11 @@ class Data
     return struct
 
   loadTo: (serialized, parent = @root, index = -1) ->
-    row = { id: do @store.getNew }
+    row = { id: do @store.getNew, collapsed: serialized.collapsed }
 
     if row.id != @root.id
       @attachChild parent, row, index
+      delete row.collapsed
     else
       # parent should be 0 == @root.id
       @store.setParents row.id, [@root.id]
@@ -523,7 +551,6 @@ class Data
               line[i][property] = true
 
       @setLine row, line
-      @store.setCollapsed row.id, serialized.collapsed
 
       if serialized.mark
         @setMark row, serialized.mark
